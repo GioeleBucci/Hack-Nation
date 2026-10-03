@@ -1,0 +1,277 @@
+# Fire Lab: Omnigent orchestrator, six specialist sub-agents, domain tools and policies.
+# Run:   omnigent run agents/lab_director.yaml -p "<objective>"
+# Docs:  docs/architecture.md (agents and handoffs), docs/policies.md (guardrails)
+
+name: fire_lab_director
+instructions: ../prompts/director.md   # resolved relative to this file
+
+executor:
+  harness: claude-sdk
+  model: databricks-claude-opus-4-7     # use an endpoint your workspace exposes
+  auth:
+    type: databricks
+    profile: hackathon
+
+# No os_env: agents act only through the typed tools below (no shell, no file writes).
+
+tools:
+  # ------------------------------------------------------------------ domain tools
+  lab_status:
+    type: function
+    description: Simulation budget, record counts, open hypotheses, latest decision, available strategies and scenario sets. Call this first.
+    callable: firelab.tools.record.lab_status
+    parameters:
+      type: object
+      properties: {}
+
+  openalex_search:
+    type: function
+    description: Search OpenAlex for scientific works. Returns source_id (openalex:W...), DOI, title, year, citations and abstract.
+    callable: firelab.tools.literature.openalex_search
+    parameters:
+      type: object
+      properties:
+        query: {type: string}
+        max_results: {type: integer, description: "1-25, default 10"}
+        from_year: {type: integer}
+      required: [query]
+
+  generate_plan:
+    type: function
+    description: Build a treatment plan (set of treated cells) from a strategy at a budget (% of burnable area). Idempotent; returns plan id.
+    callable: firelab.tools.strategies.generate_plan
+    parameters:
+      type: object
+      properties:
+        strategy: {type: string, enum: [none, random, fuel_load, burn_prob, asset_buffer, wind_strips, path_centrality, hybrid]}
+        budget_pct: {type: number}
+        seed: {type: integer}
+        params: {type: object, description: "Strategy parameters; see lab_status for defaults"}
+        plan_id: {type: string, description: "Optional explicit id"}
+      required: [strategy, budget_pct]
+
+  run_ensemble:
+    type: function
+    description: Burn every plan under the SAME ignition x weather scenarios (common random numbers). Records experiment and results. Cost = plans x n_ignitions x n_weather simulations.
+    callable: firelab.tools.simulate.run_ensemble
+    parameters:
+      type: object
+      properties:
+        experiment_id: {type: string}
+        plan_ids: {type: array, items: {type: string}}
+        ignition_set: {type: string, description: "train | heldout"}
+        weather_set: {type: string, description: "train | heldout_nw | heldout_extreme"}
+        n_ignitions: {type: integer}
+        n_weather: {type: integer}
+        seed: {type: integer}
+        option_id: {type: string, description: "The chosen experiment_option this run executes"}
+      required: [experiment_id, plan_ids, ignition_set, weather_set, n_ignitions, n_weather, seed]
+
+  compute_stats:
+    type: function
+    description: Paired comparison of every plan vs baseline plan(s) (bootstrap 95% CIs, Wilcoxon, Holm). Writes a stats item and returns its id.
+    callable: firelab.tools.stats.compute_stats
+    parameters:
+      type: object
+      properties:
+        experiment_id: {type: string}
+        baseline_plan_ids: {type: array, items: {type: string}, description: "Usually all random-control replicates"}
+        metrics: {type: array, items: {type: string, enum: [burned_ha, asset_cells]}}
+      required: [experiment_id, baseline_plan_ids]
+
+  burn_window_days:
+    type: function
+    description: Historical days per year meeting a prescribed-burn weather window (Open-Meteo ERA5).
+    callable: firelab.tools.weather.burn_window_days
+    parameters:
+      type: object
+      properties:
+        region_id: {type: string, description: "e.g. synthetic_v1, sierra_foothills_ca, or 'lat,lon'"}
+        prescription: {type: object, description: "rh_min, rh_max, wind_min_kmh, wind_max_kmh, temp_min_c, temp_max_c, hours, min_hours, months"}
+        years: {type: array, items: {type: integer}}
+      required: [region_id]
+
+  record_write:
+    type: function
+    description: Validate and append an item to the research record. kind = evidence | hypothesis | experiment_option | finding | decision | risk_flag. Reusing an id writes a new version.
+    callable: firelab.tools.record.record_write
+    parameters:
+      type: object
+      properties:
+        kind: {type: string, enum: [evidence, hypothesis, experiment_option, finding, decision, risk_flag]}
+        payload: {type: object}
+        author: {type: string, description: "Your role, e.g. hypothesis_agent"}
+      required: [kind, payload, author]
+
+  record_read:
+    type: function
+    description: Read the latest version of record items by kind and/or ids (history=true for all versions of one id).
+    callable: firelab.tools.record.record_read
+    parameters:
+      type: object
+      properties:
+        kind: {type: string}
+        ids: {type: array, items: {type: string}}
+        limit: {type: integer}
+        history: {type: boolean}
+
+  publish_recommendation:
+    type: function
+    description: Publish a treatment recommendation. Requires a decision, at least one risk_flag for the plan, explicit caveats, and human approval.
+    callable: firelab.tools.record.publish_recommendation
+    parameters:
+      type: object
+      properties:
+        plan_id: {type: string}
+        decision_id: {type: string}
+        caveats: {type: string}
+        risk_flag_ids: {type: array, items: {type: string}}
+      required: [plan_id, decision_id, caveats]
+
+  # ------------------------------------------------------------------ specialist sub-agents
+  literature_agent:
+    type: agent
+    description: Finds prior evidence and open gaps on fuel-treatment placement. Writes cited EvidenceCards and returns their ids.
+    prompt: |
+      You are the literature specialist of a wildfire fuel-treatment lab. Decision you own:
+      what prior evidence says about WHERE to place fuel treatments, and where the gaps are.
+      1. Run 3-6 focused openalex_search queries (e.g. "fuel treatment placement wildfire
+         simulation", "strategic fuel treatment spatial optimization", "prescribed burn
+         landscape effectiveness wind", "fuel break asset protection wildland urban interface").
+      2. Write 5-15 EvidenceCards with record_write(kind="evidence", author="literature_agent"):
+         {"claim": one sentence, "source_id": "openalex:W..." exactly as returned, "title", "year",
+          "summary": 2-3 sentences, "confidence": "low|medium|high", "gap": false}
+         Write open questions as cards with "gap": true, citing the work that raises them.
+      Never invent or alter a source id; only cite works returned by openalex_search.
+      Return: the evidence ids, the 3 most decision-relevant claims, and the main gaps.
+    executor: {harness: claude-sdk, model: databricks-claude-sonnet-4-6}
+    tools: {openalex_search: inherit, record_write: inherit, record_read: inherit}
+    max_sessions: 2
+
+  hypothesis_agent:
+    type: agent
+    description: Turns evidence and previous findings into testable, labeled placement hypotheses, and revises them when results surprise.
+    prompt: |
+      You are the hypothesis specialist. Decision you own: which placement strategies are
+      worth testing next. Read lab_status (strategies + parameters) and the record.
+      Write 3-5 hypotheses with record_write(kind="hypothesis", author="hypothesis_agent"):
+        {"statement", "label": "agent-generated", "strategy": one of lab_status strategies,
+         "params": {...}, "evidence_ids": ["E.."], "finding_ids": ["F.."],
+         "metric": "burned_ha" or "asset_cells",
+         "predicted_change_pct": quantitative prediction vs the random control (e.g. -15),
+         "falsified_if": concrete criterion, "status": "proposed"}
+      Each hypothesis must be buildable by generate_plan and cite evidence or findings.
+      When asked to revise after a finding: update the tested hypotheses by rewriting them with
+      the SAME id and status "supported" / "rejected" / "reopened", and write new hypotheses
+      with "parent_id" and "revision_note" explaining what the result changed. If a finding
+      flags a surprise, explicitly state which assumption you are reopening.
+      Return the hypothesis ids with one line each.
+    executor: {harness: claude-sdk, model: databricks-claude-sonnet-4-6}
+    tools: {lab_status: inherit, record_read: inherit, record_write: inherit}
+    pass_history: true
+
+  planner_agent:
+    type: agent
+    description: Designs at least two competing experiments under the simulation budget and chooses one on expected learning, feasibility and cost.
+    prompt: |
+      You are the experiment planner. Decision you own: which experiment to run next, given
+      the remaining simulation budget (lab_status). For the round number you are given:
+      1. Write at least TWO rival options with record_write(kind="experiment_option",
+         author="planner_agent"), chosen=false:
+         {"round", "tests": ["H.."], "design": "screen|deep|sweep|transfer|other",
+          "plans": [{"strategy": "none"}, {"strategy": "random", "seed": 1}, ...,
+                    {"strategy": "...", "params": {...}, "seed": 0}],
+          "budget_pct": 5, "ignition_set": "train", "weather_set": "train",
+          "n_ignitions": N, "n_weather": M, "cost_sims": plans x N x M,
+          "expected_learning": "...", "feasibility": "...", "why": "..."}
+         Every option MUST include the "none" control and the "random" control (use 3-5 random
+         seeds for replicates). Typical trade-off: broad screen (many plans, ~40-60 ignitions)
+         vs deep test (few plans, 150-300 ignitions). Keep the treatment budget_pct identical
+         across rounds unless the objective says otherwise.
+      2. Choose one: rewrite it with the SAME id and "chosen": true and a "why" that compares
+         expected learning per simulation. Never exceed the remaining budget.
+      Return the chosen option id and its full spec.
+    executor: {harness: claude-sdk, model: databricks-claude-sonnet-4-6}
+    tools: {lab_status: inherit, record_read: inherit, record_write: inherit}
+
+  runner_agent:
+    type: agent
+    description: Executes a chosen experiment option exactly and reproducibly.
+    prompt: |
+      You are the experiment runner. Decision you own: executing an experiment correctly.
+      Given an experiment_option id: read it, build every plan with generate_plan (same
+      budget_pct, the listed seeds and params), then call run_ensemble ONCE with all plan ids,
+      the option's scenario sets and sizes, seed=0, option_id=<option id> and a new
+      experiment_id like "EXP-R<round>-<letter>". Never change scenario sets between plans and
+      never split one option into several runs. If a tool returns an error, report it; do not
+      improvise a different experiment.
+      Return: experiment_id, the plan id -> strategy mapping, which plan ids are the random
+      controls, and the result table.
+    executor: {harness: claude-sdk, model: databricks-claude-sonnet-4-6}
+    tools: {lab_status: inherit, record_read: inherit, generate_plan: inherit, run_ensemble: inherit}
+
+  analysis_agent:
+    type: agent
+    description: Interprets results statistically, compares predictions with observations and flags surprises.
+    prompt: |
+      You are the analyst. Decision you own: what a result means and whether it should change
+      the plan. Given an experiment_id and its random-control plan ids:
+      1. compute_stats(experiment_id, baseline_plan_ids=<all random controls>).
+      2. Read the hypotheses the experiment tested; compare predicted_change_pct with the
+         observed rel_change_pct and its 95% CI.
+      3. Write a finding with record_write(kind="finding", author="analysis_agent"):
+         {"experiment_id", "stats_id", "summary", "hypothesis_updates": [{"hypothesis_id",
+          "observed_change_pct", "verdict": "supported|rejected|inconclusive"}],
+          "surprise": true if a prediction failed badly, a control behaved unexpectedly or a
+          strategy did not transfer, "reopen": [hypotheses or assumptions to revisit],
+          "confidence": "low|medium|high"}
+      Report effect sizes with CIs, not only p-values. Never overstate; say "inconclusive"
+      when the CI spans zero. Return the finding id, the ranking and any surprise.
+    executor: {harness: claude-sdk, model: databricks-claude-sonnet-4-6}
+    tools: {compute_stats: inherit, record_read: inherit, record_write: inherit}
+
+  safety_agent:
+    type: agent
+    description: Reviews a candidate plan for risks and feasibility and prepares the approval request.
+    prompt: |
+      You are the safety reviewer. Decision you own: whether a plan is safe and feasible
+      enough to put in front of a human. For the candidate plan id:
+      1. Read the plan, its results and stats (record_read).
+      2. Count feasible burn days with burn_window_days(region_id=<landscape name>).
+      3. Write one risk_flag per relevant risk with record_write(kind="risk_flag",
+         author="safety_agent"): {"plan_id", "category": "escape|smoke|ecology|assets|
+         model_limits|feasibility|other", "severity": "low|medium|high", "description",
+         "mitigation"}. Always include a model_limits flag (synthetic landscape, treated
+         cells modelled as non-burnable, simulated weather) and a feasibility flag based on
+         burn-window days.
+      Do not publish anything. Return the risk_flag ids, the burn-window numbers, and a draft
+      of the caveats text the director should attach to the recommendation.
+    executor: {harness: claude-sdk, model: databricks-claude-sonnet-4-6}
+    tools: {lab_status: inherit, record_read: inherit, record_write: inherit, burn_window_days: inherit}
+
+# ------------------------------------------------------------------ policies
+policies:
+  llm_budget:
+    type: function
+    handler: omnigent.policies.builtins.cost.cost_budget
+    factory_params:
+      max_cost_usd: 30.00
+      ask_thresholds_usd: [10.00, 20.00]
+  tool_call_cap:
+    type: function
+    handler: omnigent.policies.builtins.safety.max_tool_calls_per_session
+    factory_params:
+      limit: 400
+  sim_budget:
+    type: function
+    handler: firelab.policies.simulation_budget
+    factory_params:
+      max_sims: 20000          # keep equal to FIRELAB_MAX_SIMS (the tool-level guard)
+  record_integrity:
+    type: function
+    handler: firelab.policies.record_integrity
+  human_approval:
+    type: function
+    handler: firelab.policies.approval_gate
+    factory_params:
+      ask_above_sims: 5000

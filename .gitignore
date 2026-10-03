@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# Generated at runtime (rebuild with `firelab init`; the record is exported to results/)
+data/*.npz
+data/cache/
+record/
+mlruns/
