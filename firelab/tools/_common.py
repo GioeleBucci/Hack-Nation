@@ -41,6 +41,8 @@ def tool(fn: Callable) -> Callable:
     """Wrap a tool so it always returns a JSON-serializable dict and never raises."""
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
+        # gpt-oss calls argument-less tools with {"": {}}; a blank name is never a real parameter.
+        kwargs.pop("", None)
         try:
             result = fn(*args, **kwargs)
             if isinstance(result, dict):

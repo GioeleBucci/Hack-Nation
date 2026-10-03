@@ -62,7 +62,7 @@ Full step-by-step instructions, environment variables and troubleshooting: [docs
 
 ```
 agents/lab_director.yaml   Omnigent spec: director, 6 specialist sub-agents, tools, policies
-prompts/director.md        Director instructions (the loop, stopping rules)
+agents/prompts/director.md Director instructions (the loop, stopping rules)
 firelab/
   landscape.py             Fuel / elevation / asset rasters; deterministic synthetic landscape
   scenarios.py             Frozen ignition and weather sets (train / held-out)

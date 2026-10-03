@@ -1,0 +1,327 @@
+{
+  "setup": {
+    "budget_pct": 5.0,
+    "n_ignitions": 40,
+    "n_weather": 3,
+    "sims_per_config": 120,
+    "space_size": 31,
+    "repeats": 20
+  },
+  "best_reduction_pct": 74.0217431091914,
+  "target_reduction_pct": 70.32065595373183,
+  "space_scores": [
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 20,
+        "width": 1,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 74.02
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 20,
+        "width": 1,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 74.02
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 20,
+        "width": 2,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 71.96
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 20,
+        "width": 2,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 67.38
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 8,
+        "width": 1,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 64.25
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 12,
+        "width": 1,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 64.03
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 12,
+        "width": 2,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 63.82
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 8,
+        "width": 1,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 61.43
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 12,
+        "width": 1,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 61.23
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 20,
+        "width": 3,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 58.17
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 8,
+        "width": 2,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 58.05
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 20,
+        "width": 3,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 55.97
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 12,
+        "width": 3,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 53.17
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 8,
+        "width": 3,
+        "priority": "fuel_load"
+      },
+      "reduction_pct": 52.01
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 12,
+        "width": 2,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 49.49
+    },
+    {
+      "strategy": "fuel_load",
+      "params": {},
+      "reduction_pct": 39.8
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 8,
+        "width": 2,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 39.53
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 12,
+        "width": 3,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 35.87
+    },
+    {
+      "strategy": "hybrid",
+      "params": {
+        "weights": {
+          "centrality": 0.5,
+          "upwind_of_assets": 0.5
+        }
+      },
+      "reduction_pct": 32.19
+    },
+    {
+      "strategy": "wind_strips",
+      "params": {
+        "spacing": 8,
+        "width": 3,
+        "priority": "burn_prob"
+      },
+      "reduction_pct": 32.15
+    },
+    {
+      "strategy": "asset_buffer",
+      "params": {
+        "upwind_weight": 0.0,
+        "max_distance": null
+      },
+      "reduction_pct": 30.1
+    },
+    {
+      "strategy": "asset_buffer",
+      "params": {
+        "upwind_weight": 0.0,
+        "max_distance": 15
+      },
+      "reduction_pct": 30.1
+    },
+    {
+      "strategy": "asset_buffer",
+      "params": {
+        "upwind_weight": 1.0,
+        "max_distance": 15
+      },
+      "reduction_pct": 29.42
+    },
+    {
+      "strategy": "asset_buffer",
+      "params": {
+        "upwind_weight": 1.0,
+        "max_distance": null
+      },
+      "reduction_pct": 29.17
+    },
+    {
+      "strategy": "asset_buffer",
+      "params": {
+        "upwind_weight": 0.5,
+        "max_distance": 15
+      },
+      "reduction_pct": 28.86
+    },
+    {
+      "strategy": "asset_buffer",
+      "params": {
+        "upwind_weight": 0.5,
+        "max_distance": null
+      },
+      "reduction_pct": 28.78
+    },
+    {
+      "strategy": "hybrid",
+      "params": {
+        "weights": {
+          "burn_prob": 0.5,
+          "asset_proximity": 0.5
+        }
+      },
+      "reduction_pct": 27.52
+    },
+    {
+      "strategy": "hybrid",
+      "params": {
+        "weights": {
+          "burn_prob": 0.5,
+          "upwind_of_assets": 0.5
+        }
+      },
+      "reduction_pct": 27.13
+    },
+    {
+      "strategy": "path_centrality",
+      "params": {},
+      "reduction_pct": 26.09
+    },
+    {
+      "strategy": "hybrid",
+      "params": {
+        "weights": {
+          "fuel_load": 0.3,
+          "burn_prob": 0.3,
+          "upwind_of_assets": 0.4
+        }
+      },
+      "reduction_pct": 25.39
+    },
+    {
+      "strategy": "burn_prob",
+      "params": {},
+      "reduction_pct": 19.88
+    }
+  ],
+  "grid_search_sims": 2760,
+  "random_search_sims": {
+    "median": 1080.0,
+    "iqr": [
+      810.0,
+      1170.0
+    ],
+    "found_in": "20/20"
+  },
+  "agent_sims": null,
+  "agent_trajectory": [
+    {
+      "experiment_id": "EXP-R1-A",
+      "cumulative_sims": 720,
+      "best_reduction_pct": 49.488634283831765
+    },
+    {
+      "experiment_id": "EXP-R2-A",
+      "cumulative_sims": 3120,
+      "best_reduction_pct": 49.488634283831765
+    },
+    {
+      "experiment_id": "EXP-R3-A",
+      "cumulative_sims": 5220,
+      "best_reduction_pct": 49.488634283831765
+    },
+    {
+      "experiment_id": "EXP-R3-B",
+      "cumulative_sims": 7170,
+      "best_reduction_pct": 49.488634283831765
+    },
+    {
+      "experiment_id": "EXP-R4-A",
+      "cumulative_sims": 11670,
+      "best_reduction_pct": 50.35909074270655
+    },
+    {
+      "experiment_id": "EXP-R4-B",
+      "cumulative_sims": 16170,
+      "best_reduction_pct": 50.35909074270655
+    },
+    {
+      "experiment_id": "EXP-R5-A",
+      "cumulative_sims": 18120,
+      "best_reduction_pct": 50.35909074270655
+    }
+  ]
+}

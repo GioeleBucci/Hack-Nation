@@ -8,4 +8,6 @@ __pycache__/
 data/*.npz
 data/cache/
 record/
+record.aborted-*/
 mlruns/
+.DS_Store
